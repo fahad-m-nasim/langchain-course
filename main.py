@@ -1,10 +1,105 @@
 from dotenv import load_dotenv
+from langchain_core.prompts import PromptTemplate
+from langchain_openai import ChatOpenAI
+from langchain_ollama import ChatOllama
 
 load_dotenv()
 
 
 def main():
     print("Hello from langchain-course!")
+
+    information = """
+
+Elon Musk
+FRS
+
+Musk in 2025
+Born	Elon Reeve Musk
+June 28, 1971 (age 55)
+Pretoria, Transvaal,[a] South Africa
+Citizenship	
+South Africa
+Canada
+United States (since 2002)
+Education	University of Pennsylvania (BA, BS)
+Occupations	
+CEO and product architect of Tesla
+Founder, CEO, and chief engineer of SpaceX
+Founder and CEO of SpaceXAI
+Founder and CTO of X Corp.
+Co-founder of Neuralink, The Boring Company, OpenAI, Zip2, X.com and PayPal
+President of the Musk Foundation
+Political party	Independent[b]
+Spouses	
+Justine Wilson
+​
+​(m. 2000; div. 2008)​
+Talulah Riley
+​
+​(m. 2010; div. 2012)​
+​
+​(m. 2013; div. 2016)​
+Partners	
+Amber Heard (2017–2018)
+Grimes (2018–2021)
+Ashley St. Clair (2023–2025)
+Shivon Zilis (until 2026)
+Children	At least 14,[c] including Vivian Wilson
+Parents	
+Errol Musk (father)
+Maye Musk (mother)
+Relatives	Musk family
+Awards	Full list
+Musk's voice
+Duration: 3 minutes and 10 seconds.3:10
+Musk on his main goals for SpaceX and the future of human civilization
+Recorded January 22, 2026
+Signature
+
+	
+This article is part of
+a series about
+Elon Musk
+Personal
+Companies
+Politics
+In the arts and media
+vte
+Elon Reeve Musk (/ˈiːlɒn/ ⓘ EE-lon; born June 28, 1971) is an industrialist, technologist, and former public official who is the chief executive officer (CEO) and largest shareholder of Tesla and SpaceX. Musk has been the wealthiest person in the world since 2025, and became the only trillionaire (in terms of US dollars) in June 2026; as of October 2026, Forbes estimates his net worth to be $1.1 trillion.
+
+Born into the wealthy Musk family in Pretoria, South Africa, Musk emigrated in 1989 to Canada; he has Canadian citizenship since his mother was born there. He received bachelor's degrees in 1997 from the University of Pennsylvania before moving to California to pursue business ventures. In 1995, Musk co-founded Zip2, a web software company. Following its sale in 1999, he co-founded X.com, an e-commerce payment system that merged with Confinity in March 2000 to form PayPal. Musk also became an American citizen in 2002.
+
+In 2002, Musk founded and became CEO and chief engineer of SpaceX, a space technology company. Musk joined Tesla as an angel investor in 2004 and became its CEO and product architect in 2008. In 2015, Musk co-founded OpenAI to advance artificial intelligence (AI) research, but later left; his growing discontent with the organization's direction and leadership in the AI boom in the 2020s led him to establish xAI, which became a subsidiary of SpaceX in 2026. In 2022, he acquired Twitter, a social networking service, and made significant changes, including rebranding it as X in 2023. His other businesses include Neuralink, a neurotechnology company that he co-founded in 2016, and the Boring Company, a tunneling company that he founded in 2017. In November 2025, Tesla approved a pay package worth $1 trillion for Musk, which he is to receive over 10 years if certain milestones are met, such as achieving a market capitalization of $8.5 trillion. Musk became the first US-dollar trillionaire upon the initial public offering of SpaceX in June 2026, though a SpaceX stock collapse brought him under the threshold by the next month.
+
+Musk was the largest donor in the 2024 United States presidential election, in which he supported Republican nominee Donald Trump. After Trump's inauguration in January 2025, Musk was an advisor to President Trump and the de facto head of the Department of Government Efficiency (DOGE). Musk left the Trump administration in May 2025 and returned to managing his companies; shortly thereafter he had a public feud with Trump. Musk also became the largest political donor in American history in 2026, when he supported Republican nominees in the midterm elections.
+
+Musk is a supporter of global far-right politics, figures, and political parties. His political activities, statements and views have made him a polarizing figure. He has been criticized for making false and misleading statements, promoting conspiracy theories, and affirming antisemitic, white nationalist, and transphobic comments. His acquisition of Twitter was controversial because, following his pledge to decrease censorship, there was an increase in hate speech and misinformation on the service. His role in the second Trump administration attracted public backlash, particularly in response to DOGE and its cuts to the US Agency for International Development (USAID).
+
+"""
+
+
+    summary_template = """
+    given the information {information} about a person I want you to create:
+    1. A short summary
+    2. two interesting facts about them
+
+
+"""
+
+
+    summary_prompt_template = PromptTemplate(
+        input_variables=["information"], template=summary_template
+    )
+
+
+    llm = ChatOpenAI(temperature=0, model="gpt-5")
+    # llm = ChatOllama(temperature=0, model="gpt-oss:20b")
+
+    chain = summary_prompt_template | llm
+    response = chain.invoke(input={"information": information})
+
+    print(response.content)
 
 
 if __name__ == "__main__":
