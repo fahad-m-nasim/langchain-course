@@ -26,6 +26,7 @@ def apply_discount(price: float, discount_tier: str) -> float:
         Available tiers: bronze, silver, gold
     """
     print(f"        >>Executing apply_discount(price='{price}', discount_tier='{discount_tier}')")
+    price = float(price)
     discount_percentages = {"bronze": 5, "silver": 12, "gold": 23}
     discount = discount_percentages.get(discount_tier, 0)
     return round(price * (1 - discount / 100 ), 2)
@@ -54,7 +55,15 @@ def get_tool_descriptions(tools_dict):
 tool_descriptions = get_tool_descriptions(tools)
 tool_names = ", ".join(tools.keys())
 
-prompt = """
+
+# Change 4: Drop tools= from ollama.chat(). The Ollama has no idea it's an agent
+# all agency comes from the prompt above and our regex parsing below
+@traceable(name="Ollama chat", run_type="llm")
+def ollama_chat_traced(model, messages, options):
+    return ollama.chat(model=model, messages=messages, options=options)
+
+
+react_prompt = f"""
 
 STRICT RULES - you must follow these rules exactly:\n
 1. NEVER guess or assume any product price. You must call get_product_price function first to get the real price of the product.
@@ -67,7 +76,7 @@ STRICT RULES - you must follow these rules exactly:\n
 
 Answer the following questions as best as you can. You have access to the following tools:
 
-{tools_descriptions}
+{tool_descriptions}
 
 Use the following format:
 
@@ -82,6 +91,87 @@ Final Answer: the final answer to the original input question
 
 Begin!
 
-Question: {input}
+Question: {{question}}
 Thought:"""
+
+
+
+
+
+# ---- Agent Loop ---- 
+@traceable(name="Ollama Agent Loop")
+def run_agent(question: str):
+    print(f"Question: {question}")
+    print("=" * 60)
+
+    prompt = react_prompt.format(question=question)
+    scratchpad = ""
+
+
+    for iteration in range(1, MAX_ITERATIONS + 1):
+        print(f"\n--- Iteration {iteration} ---")
+
+        full_prompt = prompt + scratchpad
+
+        # Stop token prevents the LLM from generating its own Observations
+        # we inject the real tools results instead
+        response = ollama_chat_traced(
+            model=MODEL,
+            messages=[{"role": "user", "content": full_prompt}],
+            options={"stop":["\nObservation"], "temperature": 0}
+        )
+
+        output = response.message.content
+        print(f"LLM Output:\n{output}")
+
+        print(f"    [Parsing] Looking for Final Answer in LLM output...")
+        final_answer_match = re.search(r"Final Answer:\s*(.+)", output)
+        if final_answer_match:
+            final_answer = final_answer_match.group(1).strip()
+            print(f"    [Parsed] Final Answer: {final_answer}")
+            print("\n" + "=" * 60)
+            print(f"\nFinal Answer: {final_answer}")
+            return final_answer
+
+        # Change 6: Parse tool calls from raw text with regex - fragile if LLM doesn't follow format.
+        print(f"    [Parsing] Looking for Action and Action Input in LLM output...")
+
+        action_match = re.search(r"Action:\s*(.+)", output)
+        action_input_match= re.search(r"Action Input:\s*(.+)", output)
+
+        if not action_match or not action_input_match:
+            print("   [Parsing] ERROR: Could not parse Action / Action Input from lLM output")
+            break
+
+        tool_name = action_match.group(1).strip()
+        tool_input_raw = action_input_match.group(1).strip()
+
+        print(f"    [Tool Selected] {tool_name} with args: {tool_input_raw}")
+
+        # Split comma-separated arguments; strip key=prefix if LLM outputs key=value format
+        raw_args = [x.strip() for x in tool_input_raw.split(",")]
+        args = [x.split("=", 1)[-1].strip().strip("'\"") for x in raw_args]
+
+        print(f"    [Tool Executing] {tool_name}({args})...")
+
+        if tool_name not in tools:
+            observation = f"Error: Tool {tool_name} not found. Available tools: {list[str](tools.keys())}"
+        else:
+            observation = str(tools[tool_name](*args))
+
+
+
+        print(f"    [Tool Result] {observation}")
+
+        # Change 7: history is one growing string re-sent every iteration (replaces messages.append)
+        scratchpad += f"{output}\nObservation: {observation}\nThought:"
+
+
+    print("Error: Max iterations reached without a final answer")
+    return None
+
+if __name__ == "__main__":
+    print(f"Hello LangChain Agent (.bind_tools)!")
+    print()
+    result = run_agent("What is a price of a laptop after applying gold discount!")
 
